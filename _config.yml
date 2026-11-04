@@ -1,0 +1,27 @@
+collections:
+  fics:
+    output: true
+
+defaults:
+  - scope:
+      path: "_fics/*.md"
+      type: fics
+    values:
+      layout: fic-data
+      permalink: /fic-data/:name/work.js
+
+kramdown:
+  smart_quotes: "39,39,34,34"
+  typographic_symbols:
+    hellip: "..."
+    mdash: "---"
+    ndash: "--"
+    laquo: "<<"
+    raquo: ">>"
+    laquo_space: "<< "
+    raquo_space: " >>"
+
+exclude:
+  - "Atualizar biblioteca.cmd"
+  - fic-template.md
+  - radioapple-reader.zip

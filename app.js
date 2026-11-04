@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const story = window.RADIOAPPLE_STORY;
+  let story;
   const $ = (id) => document.getElementById(id);
   const storageKey = 'radioapple-reader:settings:v2';
   const themeColor = document.querySelector('meta[name="theme-color"]');
@@ -38,21 +38,64 @@
     return chapter.title && chapter.title !== label ? `${label}: ${chapter.title}` : label;
   }
 
+  function parseChapters(html) {
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const proseTags = new Set(['P', 'BR', 'HR', 'EM', 'I', 'STRONG', 'B', 'DEL', 'S', 'U',
+      'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'CODE', 'PRE', 'SUB', 'SUP']);
+    for (const element of template.content.querySelectorAll('*')) {
+      if (['SCRIPT', 'STYLE', 'TEMPLATE', 'SVG', 'MATH'].includes(element.nodeName)) {
+        element.remove();
+      } else if (proseTags.has(element.nodeName)) {
+        for (const name of element.getAttributeNames()) element.removeAttribute(name);
+      } else {
+        element.replaceWith(...element.childNodes);
+      }
+    }
+
+    const chapters = [];
+    const parts = new Map([['notes', 'notes'], ['text', 'body'], ['end notes', 'endNotes']]);
+    function newChapter(title = '') {
+      return {
+        title,
+        body: document.createDocumentFragment(),
+        notes: document.createDocumentFragment(),
+        endNotes: document.createDocumentFragment()
+      };
+    }
+    let chapter = newChapter();
+    let part = 'body';
+    for (const node of [...template.content.childNodes]) {
+      const marker = node.nodeName === 'H2'
+        && /^Chapter\s+\d+(?:\s*:\s*(.+))?$/i.exec(node.textContent.trim());
+      if (marker) {
+        if (chapter.body.textContent.trim()) chapters.push(chapter);
+        chapter = newChapter(marker[1]);
+        part = 'body';
+      } else if (node.nodeName === 'H3' && parts.has(node.textContent.trim().toLowerCase())) {
+        part = parts.get(node.textContent.trim().toLowerCase());
+      } else {
+        chapter[part].append(node);
+      }
+    }
+    if (chapter.body.textContent.trim()) chapters.push(chapter);
+    return chapters;
+  }
+
   function populateMetadata() {
     text('work-title', story.title);
     text('work-author', story.author);
+    $('work-author').hidden = !story.author;
     text('work-summary', story.summary);
-    text('meta-rating', story.rating);
-    text('meta-category', story.category);
-    text('meta-warning', story.warning);
-    text('meta-fandom', story.fandom);
-    text('meta-relationship', story.relationship);
-    text('meta-characters', story.characters);
-    text('meta-additional', story.additionalTags);
-    text('meta-language', story.language);
+    for (const field of ['rating', 'category', 'warning', 'fandom', 'relationship', 'characters', 'additionalTags', 'language']) {
+      const value = story[field];
+      const cell = $(field === 'additionalTags' ? 'meta-additional' : `meta-${field}`);
+      cell.textContent = Array.isArray(value) ? value.join(', ') : value ?? '';
+      cell.hidden = cell.previousElementSibling.hidden = !cell.textContent.trim();
+    }
     text('meta-chapters', `${story.chapters.length}/?`);
     const words = story.chapters.reduce((total, chapter) => {
-      return total + (chapter.paragraphs.join(' ').match(/\S+/g)?.length ?? 0);
+      return total + (chapter.body.textContent.match(/\S+/g)?.length ?? 0);
     }, 0);
     text('meta-words', words.toLocaleString('en-US'));
 
@@ -65,23 +108,21 @@
       li.appendChild(link);
       list.appendChild(li);
     });
-    $('start-reading').hidden = story.chapters.length === 0;
+  }
+
+  function renderNotes(id, notes) {
+    const section = $(id);
+    const block = $(`${id}-content`);
+    block.replaceChildren(notes.cloneNode(true));
+    section.hidden = !block.textContent.trim();
   }
 
   function renderChapter(index) {
     const chapter = story.chapters[index];
     text('chapter-title', chapterTitle(chapter, index));
-    $('chapter-notes').hidden = !chapter.notes;
-    text('chapter-notes-content', chapter.notes || '');
-    $('chapter-end-notes').hidden = !chapter.endNotes;
-    text('chapter-end-notes-content', chapter.endNotes || '');
-    $('chapter-body').replaceChildren(...chapter.paragraphs.map(paragraph => {
-      const p = document.createElement('p');
-      p.textContent = paragraph;
-      if (paragraph.startsWith('[End of preview.')) p.className = 'preview-note';
-      return p;
-    }));
-    try { localStorage.setItem('radioapple-reader:last-chapter', String(index + 1)); } catch (_) {}
+    renderNotes('chapter-notes', chapter.notes);
+    renderNotes('chapter-end-notes', chapter.endNotes);
+    $('chapter-body').replaceChildren(chapter.body.cloneNode(true));
   }
 
   function navigate() {
@@ -144,8 +185,90 @@
     window.scrollTo(0, 0);
   });
 
-  window.addEventListener('hashchange', navigate);
-  updateSettings();
-  populateMetadata();
-  navigate();
+  function loadWork(id) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `fic-data/${id}/work.js`;
+      script.onload = () => {
+        const html = window.RADIOAPPLE_WORK;
+        delete window.RADIOAPPLE_WORK;
+        script.remove();
+        resolve(html);
+      };
+      script.onerror = () => {
+        script.remove();
+        reject(new Error('Work data is unavailable'));
+      };
+      document.head.append(script);
+    });
+  }
+
+  function showLibrary(works, message = '') {
+    document.title = 'Works | Fanfiction Reader';
+    document.querySelector('.brand').href = 'index.html';
+    document.querySelectorAll('[data-reader-link]').forEach(link => { link.hidden = true; });
+    text('library-status', message);
+    $('library-status').hidden = !message;
+    for (const work of works) {
+      const item = document.createElement('li');
+      const heading = document.createElement('h2');
+      const link = document.createElement('a');
+      link.href = `?fic=${encodeURIComponent(work.id)}`;
+      link.textContent = work.title;
+      heading.append(link);
+      if (work.author) heading.append(` by ${work.author}`);
+      item.append(heading);
+      for (const value of [work.fandom, work.summary]) {
+        if (!value) continue;
+        const paragraph = document.createElement('p');
+        paragraph.textContent = value;
+        item.append(paragraph);
+      }
+      $('library-list').append(item);
+    }
+    $('library').hidden = false;
+  }
+
+  async function openReader() {
+    updateSettings();
+    const catalog = window.RADIOAPPLE_CATALOG;
+    if (!Array.isArray(catalog)) {
+      showLibrary([], 'Open the built site to read the works.');
+      $('local-build-link').hidden = location.protocol !== 'file:';
+      return;
+    }
+    const works = catalog.filter(work => typeof work?.id === 'string' && /^[a-z0-9-]+$/.test(work.id) && work.title);
+    $('library-link').hidden = !works.length;
+    const selected = new URLSearchParams(location.search).get('fic');
+    if (selected === null) {
+      if (/^#(?:work|chapters|chapter-\d+(?:-text)?)$/.test(location.hash) && works.some(work => work.id === 'radioapple')) {
+        location.replace(`?fic=radioapple${location.hash}`);
+        return;
+      }
+      showLibrary(works, works.length ? '' : 'No works are available yet.');
+      return;
+    }
+    const work = works.find(entry => entry.id === selected);
+    if (!work) {
+      showLibrary(works, 'This work is unavailable.');
+      return;
+    }
+    try {
+      const html = await loadWork(work.id);
+      if (typeof html !== 'string') throw new Error('Invalid work data');
+      const chapters = parseChapters(html);
+      if (!chapters.length) throw new Error('No chapter text');
+      story = { ...work, chapters };
+    } catch (_) {
+      showLibrary(works, 'This work could not be opened.');
+      return;
+    }
+
+    populateMetadata();
+    $('reader').hidden = false;
+    window.addEventListener('hashchange', navigate);
+    navigate();
+  }
+
+  openReader();
 })();

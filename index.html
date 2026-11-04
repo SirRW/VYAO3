@@ -8,7 +8,7 @@
     <title>RadioApple | Fanfiction Reader</title>
     <link rel="icon" type="image/png" href="ao3-logo.png" />
     <link rel="stylesheet" href="styles.css" />
-    <script src="story.js" defer></script>
+    <script src="fic-data/catalog.js" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -22,103 +22,112 @@
           <a class="project-indicator" href="#about">Unofficial reader</a>
         </div>
         <nav class="site-nav" aria-label="Reader navigation">
-          <a href="#work">Work</a>
-          <a href="#chapters">Chapters</a>
+          <a id="library-link" href="index.html" hidden>Works</a>
+          <a href="#work" data-reader-link>Work</a>
+          <a href="#chapters" data-reader-link>Chapters</a>
           <a href="#about">About</a>
         </nav>
       </header>
 
       <main id="main" class="main">
-        <nav class="work-actions" aria-label="Work navigation">
-          <a class="ao3-button" data-chapter-step="-1" hidden>← Previous Chapter</a>
-          <a class="ao3-button" data-chapter-step="1" hidden>Next Chapter →</a>
-          <a class="ao3-button" href="#chapters">Chapter Index</a>
-          <button class="ao3-button" id="settings-trigger" type="button" aria-expanded="false" aria-controls="reader-settings">Reading Settings</button>
-        </nav>
+        <section id="library" aria-labelledby="library-heading" hidden>
+          <h1 class="library-heading" id="library-heading">Works</h1>
+          <p id="library-status" role="status" hidden></p>
+          <p id="local-build-link" hidden><a href="_site/index.html">Open the built library</a></p>
+          <ul class="library-list" id="library-list"></ul>
+        </section>
+        <div id="reader" hidden>
+          <nav class="work-actions" aria-label="Work navigation">
+            <a class="ao3-button" data-chapter-step="-1" hidden>← Previous Chapter</a>
+            <a class="ao3-button" data-chapter-step="1" hidden>Next Chapter →</a>
+            <a class="ao3-button" href="#chapters">Chapter Index</a>
+            <button class="ao3-button" id="settings-trigger" type="button" aria-expanded="false" aria-controls="reader-settings">Reading Settings</button>
+          </nav>
 
-        <section class="settings-panel" id="reader-settings" hidden aria-label="Reading settings">
-          <div class="settings-line">
-            <span id="font-label">Text size</span>
-            <div class="size-buttons" role="group" aria-labelledby="font-label">
-              <button type="button" class="ao3-button" id="font-decrease" aria-label="Decrease font size">A−</button>
-              <button type="button" class="ao3-button" id="font-increase" aria-label="Increase font size">A+</button>
+          <section class="settings-panel" id="reader-settings" hidden aria-label="Reading settings">
+            <div class="settings-line">
+              <span id="font-label">Text size</span>
+              <div class="size-buttons" role="group" aria-labelledby="font-label">
+                <button type="button" class="ao3-button" id="font-decrease" aria-label="Decrease font size">A−</button>
+                <button type="button" class="ao3-button" id="font-increase" aria-label="Increase font size">A+</button>
+              </div>
             </div>
-          </div>
-          <div class="settings-line">
-            <span>Appearance</span>
-            <button type="button" class="ao3-button" id="theme-toggle">Light mode</button>
-          </div>
-        </section>
+            <div class="settings-line">
+              <span>Appearance</span>
+              <button type="button" class="ao3-button" id="theme-toggle">Light mode</button>
+            </div>
+          </section>
 
-        <section class="meta-box" aria-label="Work metadata">
-          <dl class="tags">
-            <dt>Rating:</dt>
-            <dd id="meta-rating" class="tag"></dd>
-            <dt>Archive Warning:</dt>
-            <dd id="meta-warning" class="tag"></dd>
-            <dt>Category:</dt>
-            <dd id="meta-category" class="tag"></dd>
-            <dt>Fandom:</dt>
-            <dd id="meta-fandom" class="tag"></dd>
-            <dt>Relationship:</dt>
-            <dd id="meta-relationship" class="tag"></dd>
-            <dt>Characters:</dt>
-            <dd id="meta-characters" class="tag"></dd>
-            <dt>Additional Tags:</dt>
-            <dd id="meta-additional" class="tag"></dd>
-            <dt>Language:</dt>
-            <dd id="meta-language"></dd>
-            <dt>Stats:</dt>
-            <dd class="statistics">
-              <span>Words: <span id="meta-words"></span></span>
-              <span>Chapters: <span id="meta-chapters"></span></span>
-            </dd>
-          </dl>
-        </section>
+          <section class="meta-box" aria-label="Work metadata">
+            <dl class="tags">
+              <dt>Rating:</dt>
+              <dd id="meta-rating" class="tag"></dd>
+              <dt>Archive Warning:</dt>
+              <dd id="meta-warning" class="tag"></dd>
+              <dt>Category:</dt>
+              <dd id="meta-category" class="tag"></dd>
+              <dt>Fandom:</dt>
+              <dd id="meta-fandom" class="tag"></dd>
+              <dt>Relationship:</dt>
+              <dd id="meta-relationship" class="tag"></dd>
+              <dt>Characters:</dt>
+              <dd id="meta-characters" class="tag"></dd>
+              <dt>Additional Tags:</dt>
+              <dd id="meta-additional" class="tag"></dd>
+              <dt>Language:</dt>
+              <dd id="meta-language"></dd>
+              <dt>Stats:</dt>
+              <dd class="statistics">
+                <span>Words: <span id="meta-words"></span></span>
+                <span>Chapters: <span id="meta-chapters"></span></span>
+              </dd>
+            </dl>
+          </section>
 
-        <div class="workskin" id="workskin">
-          <div class="preface work-preface">
-            <header class="work-heading">
-              <h1 id="work-title" tabindex="-1"></h1>
-              <p class="byline" id="work-author"></p>
-            </header>
-            <section class="summary" id="summary-section" aria-labelledby="summary-heading">
-              <h2 id="summary-heading">Summary:</h2>
-              <blockquote class="userstuff"><p id="work-summary"></p></blockquote>
-            </section>
-          </div>
-
-          <div id="work-view">
-            <section class="preface" id="chapters" aria-labelledby="index-title">
-              <h2 id="index-title" tabindex="-1">Chapter Index</h2>
-              <ol class="chapter-list" id="chapter-list"></ol>
-              <a class="ao3-button" id="start-reading" href="#chapter-1">Read Chapter 1</a>
-            </section>
-          </div>
-
-          <article id="chapter-view" class="chapter-view" aria-labelledby="chapter-title" hidden>
-            <div class="preface chapter-preface">
-              <h2 class="chapter-title" id="chapter-title"></h2>
-              <section id="chapter-notes" aria-labelledby="notes-heading" hidden>
-                <h3 id="notes-heading">Notes:</h3>
-                <blockquote class="userstuff"><p id="chapter-notes-content"></p></blockquote>
+          <div class="workskin" id="workskin">
+            <div class="preface work-preface">
+              <header class="work-heading">
+                <h1 id="work-title" tabindex="-1"></h1>
+                <p class="byline" id="work-author"></p>
+              </header>
+              <section class="summary" id="summary-section" aria-labelledby="summary-heading">
+                <h2 id="summary-heading">Summary:</h2>
+                <blockquote class="userstuff"><p id="work-summary"></p></blockquote>
               </section>
             </div>
-            <div class="chapter-body userstuff" id="chapter-body"></div>
-            <section class="preface" id="chapter-end-notes" aria-labelledby="end-notes-heading" hidden>
-              <h3 id="end-notes-heading">Notes:</h3>
-              <blockquote class="userstuff"><p id="chapter-end-notes-content"></p></blockquote>
-            </section>
-          </article>
-        </div>
 
-        <nav class="bottom-actions" id="chapter-actions" aria-label="Chapter navigation at bottom" hidden>
-          <a class="ao3-button" data-chapter-step="-1" hidden>← Previous Chapter</a>
-          <a class="ao3-button" data-chapter-step="1" hidden>Next Chapter →</a>
-          <a class="ao3-button" href="#work">Work</a>
-          <a class="ao3-button" href="#chapters">Chapter Index</a>
-          <a class="ao3-button" href="#top" id="to-top">↑ Top</a>
-        </nav>
+            <div id="work-view">
+              <section class="preface" id="chapters" aria-labelledby="index-title">
+                <h2 id="index-title" tabindex="-1">Chapter Index</h2>
+                <ol class="chapter-list" id="chapter-list"></ol>
+                <a class="ao3-button" id="start-reading" href="#chapter-1">Read Chapter 1</a>
+              </section>
+            </div>
+
+            <article id="chapter-view" class="chapter-view" aria-labelledby="chapter-title" hidden>
+              <div class="preface chapter-preface">
+                <h2 class="chapter-title" id="chapter-title"></h2>
+                <section id="chapter-notes" aria-labelledby="notes-heading" hidden>
+                  <h3 id="notes-heading">Notes:</h3>
+                  <blockquote class="userstuff" id="chapter-notes-content"></blockquote>
+                </section>
+              </div>
+              <div class="chapter-body userstuff" id="chapter-body"></div>
+              <section class="preface" id="chapter-end-notes" aria-labelledby="end-notes-heading" hidden>
+                <h3 id="end-notes-heading">Notes:</h3>
+                <blockquote class="userstuff" id="chapter-end-notes-content"></blockquote>
+              </section>
+            </article>
+          </div>
+
+          <nav class="bottom-actions" id="chapter-actions" aria-label="Chapter navigation at bottom" hidden>
+            <a class="ao3-button" data-chapter-step="-1" hidden>← Previous Chapter</a>
+            <a class="ao3-button" data-chapter-step="1" hidden>Next Chapter →</a>
+            <a class="ao3-button" href="#work">Work</a>
+            <a class="ao3-button" href="#chapters">Chapter Index</a>
+            <a class="ao3-button" href="#top" id="to-top">↑ Top</a>
+          </nav>
+        </div>
       </main>
 
       <footer class="site-footer" id="about">
