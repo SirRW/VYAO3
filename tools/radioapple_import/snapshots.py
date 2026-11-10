@@ -9,6 +9,7 @@ from .layout import Line
 
 
 DEFAULTS = front_matter({}, "", "", [], "")
+SNAPSHOT_PARSER_VERSION = 3
 CHAPTER = re.compile(r"^## Chapter (\d+)(?:: .+)?[ \t]*$", re.M)
 SNAPSHOT_NAME = re.compile(r"(ao3-[1-9][0-9]*|local-[0-9a-f]{20})--([0-9a-f]{64})")
 
@@ -118,11 +119,16 @@ def read_snapshot(path):
         chapter = Chapter(number=int(marker[1]), heading_page=index + 1)
         if re.search(r"\w", visible):
             chapter.body.append(Line(index + 1, 0, 0, 80, 80, 0, 1, "", ((visible.strip(), ""),)))
-        if BAD_GLYPH.search(html.unescape(section)):
-            result.issue("unmapped_or_control_glyph", "review", index + 1)
+        glyphs = BAD_GLYPH.findall(html.unescape(section))
+        if glyphs:
+            if set(glyphs) == {"\ufffd"} and not BAD_GLYPH.search(visible + html.unescape(marker[0])):
+                result.issue("replacement_character_in_snapshot_notes", "warning", index + 1)
+            else:
+                result.issue("unmapped_or_control_glyph", "review", index + 1)
         result.chapters.append(chapter)
 
-    result.repost = any(REPOST.search(" ".join(html.unescape(note).split())) for note in notes)
+    result.repost = any(REPOST.search(" ".join(html.unescape(note).replace("\ufffd", "").split()))
+                        for note in notes)
     if result.repost:
         result.issue("repost_restriction", "warning")
     declared_available = metadata["chaptersAvailable"]

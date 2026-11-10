@@ -122,22 +122,26 @@ class BookTests(unittest.TestCase):
             fics.mkdir()
             with tempfile.TemporaryDirectory() as fixture_folder:
                 fixture = Path(fixture_folder) / "test.epub"
-                for work_id in (1001, 1002, 1003):
+                for work_id in (1001, 1002, 1003, 1004, 1005):
                     epub_fixture(fixture, work_id, restriction=work_id == 1003)
                     result = epub(fixture)
                     result.metadata["creators"][0]["url"] = "https://archiveofourown.org/users/Test"
                     if work_id == 1002:
                         result.chapters[-1].body.clear()
-                    data = markdown(result).encode("utf-8")
-                    (inbox / f"ao3-{work_id}--{'a' * 64}.md").write_bytes(data)
+                    data = markdown(result)
+                    if work_id == 1004:
+                        data = data.replace("Hello!", "Hello\ufffd!")
+                    if work_id == 1005:
+                        data = data.replace("Second chapter.", "Second ch\ufffdpter.")
+                    (inbox / f"ao3-{work_id}--{'a' * 64}.md").write_text(data, encoding="utf-8")
 
             with patch("tools.radioapple_import.__main__.build_library"), contextlib.redirect_stdout(io.StringIO()):
                 counts, _ = run(root, source, [], library=True)
                 repeated, _ = run(root, source, [], library=True)
-            self.assertEqual(counts["scanned"], 3)
-            self.assertEqual(counts["promoted"], 1)
-            self.assertEqual(counts["promotion_held"], 2)
+            self.assertEqual(counts["scanned"], 5)
+            self.assertEqual(counts["promoted"], 2)
+            self.assertEqual(counts["promotion_held"], 3)
             self.assertEqual(repeated["promoted"], 0)
-            self.assertEqual([path.name for path in fics.iterdir()], ["ao3-1001.md"])
+            self.assertEqual(sorted(path.name for path in fics.iterdir()), ["ao3-1001.md", "ao3-1004.md"])
             self.assertEqual((fics / "ao3-1001.md").read_bytes(),
                              (inbox / f"ao3-1001--{'a' * 64}.md").read_bytes())

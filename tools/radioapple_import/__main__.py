@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .books import docx, epub
 from .converter import convert, markdown
-from .snapshots import InvalidSnapshot, read_snapshot
+from .snapshots import SNAPSHOT_PARSER_VERSION, InvalidSnapshot, read_snapshot
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -172,9 +172,13 @@ def add_issue(record, code, severity):
     return {**record, "issues": [*issues, {"code": code, "severity": severity, "pages": []}]}
 
 
+def parser_version(path):
+    return SNAPSHOT_PARSER_VERSION if path.suffix.casefold() == ".md" else PARSER_VERSION
+
+
 def convert_record(path, relative, digest, state, dry_run):
     extension = path.suffix.casefold()
-    record = {"sourcePath": relative, "sha256": digest, "parserVersion": PARSER_VERSION,
+    record = {"sourcePath": relative, "sha256": digest, "parserVersion": parser_version(path),
               "status": "non_work", "issues": []}
     if relative.casefold() == GUIDE:
         return record
@@ -244,7 +248,7 @@ def record_for(path, source, state, entries, seen, dry_run):
         digest = file_hash(path)
         previous = entries.get(digest)
         cached = None
-        if previous and previous["parserVersion"] == PARSER_VERSION and previous["status"] != "failed":
+        if previous and previous["parserVersion"] == parser_version(path) and previous["status"] != "failed":
             cached = check_staging(previous, state)
         if cached is None:
             record = convert_record(path, relative, digest, state, dry_run)
