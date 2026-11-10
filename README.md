@@ -16,12 +16,14 @@ Jekyll generates the work catalogue and one data file per fic. The browser uses 
 
 ## Import a fic on Windows
 
-1. Put the `.pdf`, `.epub`, or `.docx` in `Archive of MY own/` or one of its subfolders.
+1. Put the `.pdf`, `.epub`, `.docx`, or RadioApple Markdown snapshot in `Archive of MY own/` or one of its subfolders.
 2. Double-click `Importar fanfics.cmd`. When it finishes, your updated private library opens automatically.
 
 For works you have permission to share, put the source in `Archive of MY own/Para publicar/` before running the same script. The script adds eligible works to `_fics/` and refreshes the static Pages package in `_pages/` in that run. Files elsewhere in the archive stay private. To deploy the package, follow the Pages release steps below.
 
 The importer supports AO3 PDF exports, unencrypted EPUBs (including AO3 exports), and DOCX documents with readable text. It keeps chapter divisions, prose, basic emphasis, and scene breaks. Embedded media, some links, and complex layouts may require review. The script reports those cases and can still open any readable local copy. Conflicting exports and repost restrictions block promotion. The report stays in `.radioapple-import/reports/`.
+
+Markdown snapshots from earlier imports can go directly into `Para publicar/`, including files named `ao3-…--<hash>.md`. The script checks the chapter structure and known import warnings, then copies eligible files into `_fics/` with their stable work IDs. Handwritten Markdown still uses the template below.
 
 To remove a promoted work, take its source out of `Para publicar/`, move its Markdown out of `_fics/`, and rebuild `_pages/`. If you used an explicit approval list, also remove its entry there. To remove an imported work from the private library, move the source out of the scanned archive and remove its matching private snapshots from `.radioapple-import/works/` and, if present, `_fics/`. Run the import script again to refresh the preview.
 
@@ -89,7 +91,7 @@ To import a selection, pass file or directory paths relative to `Archive of MY o
 & '.\Importar PDFs.cmd' --dry-run 'Fandom/minha-fic.pdf'
 ```
 
-The equivalent command for the full import and library update is `.\.venv\Scripts\python.exe -m tools.radioapple_import --library`. An alternate `--source` can point to a folder outside the repository or a subfolder of `Archive of MY own/`. The legacy `Importar PDFs.cmd` name still works and accepts all three formats.
+The equivalent command for the full import and library update is `.\.venv\Scripts\python.exe -m tools.radioapple_import --library`. An alternate `--source` can point to a folder outside the repository or a subfolder of `Archive of MY own/`. The legacy `Importar PDFs.cmd` name still works with the same formats.
 
 The command prints paths to a text report and a JSON report in `.radioapple-import/reports/`. Dry runs write reports only. Normal imports also write Markdown in `.radioapple-import/works/` and update `.radioapple-import/manifest.json`. Keep this directory for deduplication and review. `ready_with_missing_metadata` is eligible when the report lists only missing optional information. `needs_review` entries include page numbers where possible. The process returns `1` for an extraction failure or held promotion and `2` for a command or setup error. Review-only results are listed in the report.
 

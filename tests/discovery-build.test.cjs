@@ -22,17 +22,19 @@ test('published build contains legacy works and excludes import files and snapsh
   const { rows, version } = catalogAt(built);
   assert.equal(version, 2);
   const ids = rows.map(row => row.id);
-  assert.deepEqual([...ids].sort(), ['just-business', 'radioapple']);
+  assert.ok(ids.includes('just-business'));
+  assert.ok(ids.includes('radioapple'));
+  assert.ok(ids.every(id => !/^(?:ao3|local)-.*--/.test(id)));
   const legacy = rows.find(row => row.id === 'just-business');
   assert.equal(typeof legacy.additionalTags, 'string');
   assert.equal(legacy.wordCount, null);
   assert.equal(legacy.stats, null);
-  assert.equal(createDiscovery(rows).discover({ mode: 'search', title: 'business' }).works[0].id, 'just-business');
+  assert.ok(createDiscovery(rows).discover({ mode: 'search', title: 'business' }).works.some(work => work.id === 'just-business'));
   for (const name of ['Archive of MY own', '.radioapple-import', 'docs', 'tools', 'tests']) {
     assert.ok(!fs.existsSync(path.join(built, name)), name);
   }
   const payloads = fs.readdirSync(path.join(built, 'fic-data'));
-  assert.deepEqual(payloads.sort(), ['catalog.js', 'just-business', 'radioapple']);
+  assert.deepEqual(payloads.sort(), ['catalog.js', ...ids].sort());
   assert.ok(!fs.readdirSync(built, { recursive: true }).some(file => /\.pdf$|(?:^|[/\\])(?:staged|reports|logs)(?:[/\\]|$)/i.test(file)));
 });
 
@@ -44,7 +46,7 @@ test('Pages export opts out of Jekyll and contains compiled reader files only', 
   assert.deepEqual(fs.readdirSync(pages).sort(),
     ['.nojekyll', 'ao3-logo.png', 'app.js', 'browse.css', 'discovery', 'fic-data', 'index.html', 'styles.css']);
   const payloads = fs.readdirSync(path.join(pages, 'fic-data')).sort();
-  assert.deepEqual(payloads, ['catalog.js', ...rows.map(row => row.id).sort()]);
+  assert.deepEqual(payloads, ['catalog.js', ...rows.map(row => row.id)].sort());
   for (const row of rows) {
     const folder = path.join(pages, 'fic-data', row.id);
     assert.deepEqual(fs.readdirSync(folder), ['work.js']);

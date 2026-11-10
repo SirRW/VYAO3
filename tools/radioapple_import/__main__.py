@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .books import docx, epub
 from .converter import convert, markdown
+from .snapshots import InvalidSnapshot, read_snapshot
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -24,6 +25,7 @@ STATE_DIR = ".radioapple-import"
 DEFAULT_SOURCE = "Archive of MY own"
 PUBLISH_INBOX = "Para publicar"
 IMPORTERS = {".pdf": convert, ".epub": epub, ".docx": docx}
+SOURCE_EXTENSIONS = {*IMPORTERS, ".md"}
 PARSER_VERSION = 2
 READY = {"ready", "ready_with_missing_metadata"}
 STATUSES = (*sorted(READY), "needs_review", "failed", "duplicate", "non_work")
@@ -103,12 +105,12 @@ def discover(source, selections):
                 folders[:] = [name for name in folders if Path(directory, name).resolve() == Path(directory, name)]
                 for filename in files:
                     path = Path(directory, filename)
-                    if path.suffix.casefold() in IMPORTERS and not path.is_symlink():
+                    if path.suffix.casefold() in SOURCE_EXTENSIONS and not path.is_symlink():
                         found.add(path)
-        elif candidate.is_file() and candidate.suffix.casefold() in IMPORTERS:
+        elif candidate.is_file() and candidate.suffix.casefold() in SOURCE_EXTENSIONS:
             found.add(candidate)
         else:
-            raise ImportProblem(f"Expected a PDF, EPUB, DOCX or directory: {candidate}")
+            raise ImportProblem(f"Expected a PDF, EPUB, DOCX, Markdown snapshot or directory: {candidate}")
     return sorted(found, key=lambda path: (path.as_posix().casefold(), path.as_posix()))
 
 
@@ -176,19 +178,25 @@ def convert_record(path, relative, digest, state, dry_run):
               "status": "non_work", "issues": []}
     if relative.casefold() == GUIDE:
         return record
+    data, snapshot_id = None, None
     try:
-        result = IMPORTERS[extension](path)
+        if extension == ".md":
+            result, data, snapshot_id = read_snapshot(path)
+        else:
+            result = IMPORTERS[extension](path)
+    except InvalidSnapshot as error:
+        return add_issue({**record, "status": "failed"}, str(error), "error")
     except (OSError, ValueError) as error:
         return add_issue({**record, "status": "failed"}, f"{extension[1:]}_read_{type(error).__name__}", "error")
     except Exception as error:
         # Malformed exports can raise parser-specific exceptions. Continue the batch.
         return add_issue({**record, "status": "failed"}, f"{extension[1:]}_extraction_{type(error).__name__}", "error")
-    if file_hash(path) != digest:
+    if file_hash(path) != digest or (data is not None and hashlib.sha256(data).hexdigest() != digest):
         return add_issue({**record, "status": "failed"}, "source_changed_during_import", "error")
 
     metadata = result.metadata
     source = metadata.get("source")
-    work_id = f"ao3-{source['workId']}" if source else f"local-{digest[:20]}"
+    work_id = snapshot_id or (f"ao3-{source['workId']}" if source else f"local-{digest[:20]}")
     chapters = []
     for chapter in result.chapters:
         pages = [line.page for lines in (chapter.summary, chapter.notes, chapter.body, chapter.end_notes)
@@ -206,7 +214,8 @@ def convert_record(path, relative, digest, state, dry_run):
                    "issues": [{"code": code, "severity": severity, "pages": sorted(pages)}
                               for (code, severity), pages in sorted(result.issues.items())]})
     if result.chapters and result.status != "failed":
-        data = markdown(result).encode("utf-8")
+        if data is None:
+            data = markdown(result).encode("utf-8")
         output = staged_path(state, work_id, digest)
         generated_hash = hashlib.sha256(data).hexdigest()
         record["markdownSha256"] = generated_hash
@@ -258,9 +267,14 @@ def apply_identity_checks(records, entries):
     snapshots = defaultdict(set)
     similar = defaultdict(set)
     restricted = set()
+    source_reviews = defaultdict(set)
     for record in entries.values():
         if "markdownSha256" in record:
             snapshots[record["workId"]].add(record["markdownSha256"])
+            if record.get("format") != "markdown":
+                key = (record["workId"], record["markdownSha256"])
+                source_reviews[key].update(issue["code"] for issue in record.get("issues", [])
+                                           if issue["severity"] == "review")
             if record.get("title") and record.get("author"):
                 similar[record["title"].casefold(), record["author"].casefold()].add(record["workId"])
         if record.get("publication") == "repost_restricted":
@@ -272,6 +286,10 @@ def apply_identity_checks(records, entries):
         if work_id in restricted:
             record = {**record, "publication": "repost_restricted"}
         if record["status"] in READY | {"needs_review"}:
+            if record.get("format") == "markdown":
+                key = (work_id, record.get("markdownSha256"))
+                for code in sorted(source_reviews.get(key, ())):
+                    record = add_issue({**record, "status": "needs_review"}, code, "review")
             title = (record.get("title") or "").casefold()
             author = (record.get("author") or "").casefold()
             candidates = similar[title, author]
@@ -364,7 +382,7 @@ def write_reports(state, records, promotions, dry_run):
             lines.append("  Missing: " + ", ".join(record["missingMetadata"]))
         for issue in record.get("issues", []):
             pages = page_ranges(issue["pages"])
-            location = "EPUB sections" if record.get("format") == "epub" else "PDF pages"
+            location = {"epub": "EPUB sections", "markdown": "chapters"}.get(record.get("format"), "PDF pages")
             lines.append(f"  {issue['severity']}: {issue['code'].replace('_', ' ')}" +
                          (f" ({location} {pages})" if pages else ""))
         lines.append("")
@@ -447,7 +465,7 @@ def run(root, source, paths, dry_run=False, approvals=None, *, library=False, op
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Import PDF, EPUB and DOCX exports into RadioApple.")
+    parser = argparse.ArgumentParser(description="Import PDF, EPUB, DOCX and RadioApple Markdown exports.")
     parser.add_argument("paths", nargs="*", help="source files or directories inside the source folder")
     parser.add_argument("--source", type=Path, default=ROOT / DEFAULT_SOURCE, help="override the source directory")
     actions = parser.add_mutually_exclusive_group()

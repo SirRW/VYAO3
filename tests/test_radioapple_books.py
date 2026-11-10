@@ -111,3 +111,33 @@ class BookTests(unittest.TestCase):
             self.assertEqual(counts["failed"], 1)
             self.assertEqual([path.name for path in fics.iterdir()], ["ao3-1001.md"])
             self.assertEqual(len(list((root / STATE_DIR / "works").glob("*.md"))), 3)
+
+    def test_publication_inbox_validates_and_reuses_existing_markdown_snapshots(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / DEFAULT_SOURCE
+            inbox = source / PUBLISH_INBOX / "works"
+            inbox.mkdir(parents=True)
+            fics = root / "_fics"
+            fics.mkdir()
+            with tempfile.TemporaryDirectory() as fixture_folder:
+                fixture = Path(fixture_folder) / "test.epub"
+                for work_id in (1001, 1002, 1003):
+                    epub_fixture(fixture, work_id, restriction=work_id == 1003)
+                    result = epub(fixture)
+                    result.metadata["creators"][0]["url"] = "https://archiveofourown.org/users/Test"
+                    if work_id == 1002:
+                        result.chapters[-1].body.clear()
+                    data = markdown(result).encode("utf-8")
+                    (inbox / f"ao3-{work_id}--{'a' * 64}.md").write_bytes(data)
+
+            with patch("tools.radioapple_import.__main__.build_library"), contextlib.redirect_stdout(io.StringIO()):
+                counts, _ = run(root, source, [], library=True)
+                repeated, _ = run(root, source, [], library=True)
+            self.assertEqual(counts["scanned"], 3)
+            self.assertEqual(counts["promoted"], 1)
+            self.assertEqual(counts["promotion_held"], 2)
+            self.assertEqual(repeated["promoted"], 0)
+            self.assertEqual([path.name for path in fics.iterdir()], ["ao3-1001.md"])
+            self.assertEqual((fics / "ao3-1001.md").read_bytes(),
+                             (inbox / f"ao3-1001--{'a' * 64}.md").read_bytes())
