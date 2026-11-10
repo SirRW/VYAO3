@@ -1,1 +1,11 @@
 /_site/
+/_pages/
+/Archive of MY own/
+/.radioapple-import/
+/_fics/ao3-*--*.md
+/_fics/local-*--*.md
+/.venv/
+/venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/

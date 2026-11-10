@@ -1,19 +1,65 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#540b0b" />
-    <meta name="description" content="An unofficial, single-work fanfiction reader inspired by Archive of Our Own." />
+    <meta name="description" content="An unofficial fanfiction reader inspired by Archive of Our Own." />
     <title>RadioApple | Fanfiction Reader</title>
     <link rel="icon" type="image/png" href="ao3-logo.png" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="browse.css" />
+    <link rel="stylesheet" href="discovery/forms.css" />
     <script src="fic-data/catalog.js" defer></script>
+    <script src="discovery/model.js" defer></script>
+    <script src="discovery/tag-relationships.js" defer></script>
+    <script src="discovery/tags.js" defer></script>
+    <script src="discovery/query.js" defer></script>
+    <script src="discovery/state.js" defer></script>
+    <script src="discovery/engine.js" defer></script>
+    <script src="discovery/work-blurb.js" defer></script>
+    <script src="discovery/form-controls.js" defer></script>
+    <script src="discovery/tag-input.js" defer></script>
+    <script src="discovery/search-form.js" defer></script>
+    <script src="discovery/filters.js" defer></script>
+    <script src="discovery/browse-ui.js" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body>
     <div class="site-shell" id="top">
-      <header class="site-header">
+      <header class="browse-header" id="browse-header" hidden>
+        <a class="browse-skip browse-landmark" href="#main">Skip to content</a>
+        <div class="browse-brand-row">
+          <a class="browse-brand" href="index.html">
+            <img src="ao3-logo.png" width="61" height="42" alt="" />
+            <span>RadioApple Reader</span>
+          </a>
+          <a class="browse-project" href="#about">Unofficial reader</a>
+        </div>
+        <nav class="browse-primary" aria-label="Browse the library">
+          <details>
+            <summary>Fandoms</summary>
+            <div class="browse-menu"><a href="index.html?view=fandoms" data-browse-destination="fandoms">All Fandoms</a></div>
+          </details>
+          <details>
+            <summary>Browse</summary>
+            <div class="browse-menu"><a href="index.html" data-browse-destination="works">Works</a></div>
+          </details>
+          <details>
+            <summary>Search</summary>
+            <div class="browse-menu"><a href="index.html?view=search&amp;edit_search=true" data-browse-destination="search">Works</a></div>
+          </details>
+          <a class="browse-nav-link" href="#about">About</a>
+          <form class="browse-quick-search" role="search" action="index.html" method="get">
+            <input type="hidden" name="view" value="search" />
+            <label for="browse-query" class="browse-landmark">Search works</label>
+            <input type="search" id="browse-query" name="q" maxlength="1024" />
+            <button class="ao3-button" type="submit">Search</button>
+          </form>
+        </nav>
+      </header>
+
+      <header class="site-header" id="reader-header" hidden>
         <div class="brand-row">
           <a class="brand" href="#work">
             <img src="ao3-logo.png" width="61" height="42" alt="" />
@@ -29,12 +75,22 @@
         </nav>
       </header>
 
-      <main id="main" class="main">
+      <main id="main" class="main" tabindex="-1">
         <section id="library" aria-labelledby="library-heading" hidden>
           <h1 class="library-heading" id="library-heading">Works</h1>
+          <p class="browse-search-context" id="library-search-context" hidden></p>
+          <nav class="browse-context-actions" id="library-context-actions" aria-label="Listing navigation" hidden></nav>
           <p id="library-status" role="status" hidden></p>
           <p id="local-build-link" hidden><a href="_site/index.html">Open the built library</a></p>
-          <ul class="library-list" id="library-list"></ul>
+          <h2 class="browse-result-count" id="library-result-count" hidden></h2>
+          <div id="library-search-form" hidden></div>
+          <nav class="browse-pagination" id="library-pagination-top" aria-label="Works pages, top" hidden></nav>
+          <div class="browse-results" id="library-results">
+            <ol class="library-list" id="library-list" aria-label="Works list" role="list"></ol>
+            <div id="library-filters" hidden></div>
+          </div>
+          <div id="library-fandoms" hidden></div>
+          <nav class="browse-pagination" id="library-pagination" aria-label="Works pages, bottom" hidden></nav>
         </section>
         <div id="reader" hidden>
           <nav class="work-actions" aria-label="Work navigation">
@@ -51,10 +107,6 @@
                 <button type="button" class="ao3-button" id="font-decrease" aria-label="Decrease font size">A−</button>
                 <button type="button" class="ao3-button" id="font-increase" aria-label="Increase font size">A+</button>
               </div>
-            </div>
-            <div class="settings-line">
-              <span>Appearance</span>
-              <button type="button" class="ao3-button" id="theme-toggle">Light mode</button>
             </div>
           </section>
 

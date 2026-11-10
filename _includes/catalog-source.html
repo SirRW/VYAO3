@@ -1,0 +1,20 @@
+{%- assign work_id = include.source.workId | append: '' -%}
+{%- assign remainder = work_id | remove: '0' | remove: '1' | remove: '2' | remove: '3' | remove: '4' | remove: '5' | remove: '6' | remove: '7' | remove: '8' | remove: '9' -%}
+{%- assign start = work_id | slice: 0, 1 -%}
+{%- assign verified = false -%}
+{%- if include.source.archive == 'ao3' and work_id != '' and start != '0' and remainder == '' -%}
+  {%- assign hosts = 'archiveofourown.org,www.archiveofourown.org,ao3.org,www.ao3.org,secure.ao3.org,archive.transformativeworks.org' | split: ',' -%}
+  {%- for host in hosts -%}
+    {%- assign path = host | append: '/works/' | append: work_id -%}
+    {%- assign https_url = path | prepend: 'https://' -%}
+    {%- assign http_url = path | prepend: 'http://' -%}
+    {%- if include.source.url == https_url or include.source.url == http_url -%}
+      {%- assign verified = true -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endif -%}
+{%- if verified -%}
+  {"archive":"ao3","workId":{{ work_id | jsonify }},"url":{{ include.source.url | jsonify }}}
+{%- else -%}
+  null
+{%- endif -%}

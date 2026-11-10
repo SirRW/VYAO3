@@ -1,0 +1,19 @@
+{%- assign encoded = include.value | jsonify -%}
+{%- assign first = encoded | slice: 0, 1 -%}
+{%- if include.string_list and first == '[' -%}
+  [
+  {%- assign list_comma = '' -%}
+  {%- for value in include.value -%}
+    {%- assign item = value | jsonify -%}
+    {%- assign item_type = item | slice: 0, 1 -%}
+    {%- if item_type == '"' -%}
+      {{- list_comma -}}{{- item -}}
+      {%- assign list_comma = ',' -%}
+    {%- endif -%}
+  {%- endfor -%}
+  ]
+{%- elsif first == '{' or first == '[' or encoded == '' -%}
+  null
+{%- else -%}
+  {{- encoded -}}
+{%- endif -%}

@@ -1,0 +1,19 @@
+{%- assign records = include.values | jsonify | slice: 0, 1 -%}
+{%- if records == '[' -%}
+  [
+  {%- assign record_comma = '' -%}
+  {%- for record in include.values -%}
+    {%- assign value = record[include.field] | jsonify -%}
+    {%- assign value_type = value | slice: 0, 1 -%}
+    {%- if value_type == '"' -%}
+      {{ record_comma }}{ {{ include.field | jsonify }}:{{ value }}
+      {%- if include.position -%}
+        ,"position":{% include catalog-value.html value=record.position %}
+      {%- endif -%}}
+      {%- assign record_comma = ',' -%}
+    {%- endif -%}
+  {%- endfor -%}
+  ]
+{%- else -%}
+  null
+{%- endif -%}

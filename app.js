@@ -3,27 +3,17 @@
   let story;
   const $ = (id) => document.getElementById(id);
   const storageKey = 'radioapple-reader:settings:v2';
-  const themeColor = document.querySelector('meta[name="theme-color"]');
   const chapterLinks = document.querySelectorAll('[data-chapter-step]');
-  const settings = { fontSize: 16, theme: 'dark' };
+  const settings = { fontSize: 16 };
 
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
-    if (saved) {
-      Object.assign(settings, saved);
-    } else {
-      const previous = JSON.parse(localStorage.getItem('radioapple-reader:settings:v1'));
-      settings.fontSize = previous?.fontSize;
-    }
+    const previous = saved ?? JSON.parse(localStorage.getItem('radioapple-reader:settings:v1'));
+    settings.fontSize = previous?.fontSize;
   } catch (_) {}
   settings.fontSize = Math.min(23, Math.max(13, Number(settings.fontSize) || 16));
-  settings.theme = settings.theme === 'light' ? 'light' : 'dark';
-
   function updateSettings() {
-    document.documentElement.dataset.theme = settings.theme;
     document.documentElement.style.setProperty('--reader-font-size', `${settings.fontSize}px`);
-    themeColor.content = settings.theme === 'dark' ? '#540b0b' : '#990000';
-    $('theme-toggle').textContent = settings.theme === 'light' ? 'Dark mode' : 'Light mode';
     $('font-decrease').disabled = settings.fontSize <= 13;
     $('font-increase').disabled = settings.fontSize >= 23;
     try { localStorage.setItem(storageKey, JSON.stringify(settings)); } catch (_) {}
@@ -175,10 +165,6 @@
     settings.fontSize = Math.min(23, settings.fontSize + 1);
     updateSettings();
   });
-  $('theme-toggle').addEventListener('click', () => {
-    settings.theme = settings.theme === 'dark' ? 'light' : 'dark';
-    updateSettings();
-  });
   $('to-top').addEventListener('click', event => {
     event.preventDefault();
     document.querySelector('.brand').focus({ preventScroll: true });
@@ -203,54 +189,40 @@
     });
   }
 
-  function showLibrary(works, message = '') {
-    document.title = 'Works | Fanfiction Reader';
-    document.querySelector('.brand').href = 'index.html';
-    document.querySelectorAll('[data-reader-link]').forEach(link => { link.hidden = true; });
-    text('library-status', message);
-    $('library-status').hidden = !message;
-    for (const work of works) {
-      const item = document.createElement('li');
-      const heading = document.createElement('h2');
-      const link = document.createElement('a');
-      link.href = `?fic=${encodeURIComponent(work.id)}`;
-      link.textContent = work.title;
-      heading.append(link);
-      if (work.author) heading.append(` by ${work.author}`);
-      item.append(heading);
-      for (const value of [work.fandom, work.summary]) {
-        if (!value) continue;
-        const paragraph = document.createElement('p');
-        paragraph.textContent = value;
-        item.append(paragraph);
-      }
-      $('library-list').append(item);
-    }
-    $('library').hidden = false;
-  }
-
   async function openReader() {
     updateSettings();
     const catalog = window.RADIOAPPLE_CATALOG;
-    if (!Array.isArray(catalog)) {
-      showLibrary([], 'Open the built site to read the works.');
+    const version = window.RADIOAPPLE_CATALOG_VERSION ?? 1;
+    const discovery = window.RadioAppleDiscovery;
+    const browse = discovery.browse;
+    if (!Array.isArray(catalog) || ![1, 2].includes(version)) {
+      browse.show({ message: 'Open the built site to read the works.' });
       $('local-build-link').hidden = location.protocol !== 'file:';
       return;
     }
-    const works = catalog.filter(work => typeof work?.id === 'string' && /^[a-z0-9-]+$/.test(work.id) && work.title);
-    $('library-link').hidden = !works.length;
-    const selected = new URLSearchParams(location.search).get('fic');
-    if (selected === null) {
-      if (/^#(?:work|chapters|chapter-\d+(?:-text)?)$/.test(location.hash) && works.some(work => work.id === 'radioapple')) {
+    const createEngine = () => discovery.engine.createDiscovery(catalog, { catalogVersion: version });
+    if (browse.isFandomDirectory(location.search)) {
+      browse.show({ engine: createEngine(), directory: true });
+      return;
+    }
+    const route = discovery.state.decodeUrl(location.search);
+    $('library-link').hidden = !catalog.length;
+    if (route.route === 'discovery') {
+      if (!location.search && /^#(?:work|chapters|chapter-\d+(?:-text)?)$/.test(location.hash)
+          && catalog.some(work => work?.id === 'radioapple')) {
         location.replace(`?fic=radioapple${location.hash}`);
         return;
       }
-      showLibrary(works, works.length ? '' : 'No works are available yet.');
+      browse.show({ engine: createEngine(), route });
       return;
     }
-    const work = works.find(entry => entry.id === selected);
+    $('library-link').href = `index.html${route.returnQuery}`;
+    const work = discovery.model.normalizeWork(catalog.find(entry => entry?.id === route.workId));
+    const fallback = message => browse.show({
+      engine: createEngine(), route: discovery.state.decodeUrl(route.returnQuery), message
+    });
     if (!work) {
-      showLibrary(works, 'This work is unavailable.');
+      fallback('This work is unavailable.');
       return;
     }
     try {
@@ -260,11 +232,12 @@
       if (!chapters.length) throw new Error('No chapter text');
       story = { ...work, chapters };
     } catch (_) {
-      showLibrary(works, 'This work could not be opened.');
+      fallback('This work could not be opened.');
       return;
     }
 
     populateMetadata();
+    $('reader-header').hidden = false;
     $('reader').hidden = false;
     window.addEventListener('hashchange', navigate);
     navigate();

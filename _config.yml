@@ -22,6 +22,21 @@ kramdown:
     raquo_space: " >>"
 
 exclude:
+  - _pages
   - "Atualizar biblioteca.cmd"
+  - "Importar PDFs.cmd"
+  - "Importar fanfics.cmd"
+  - "Archive of MY own"
+  - "_fics/ao3-*--*.md"
+  - "_fics/local-*--*.md"
+  - .radioapple-import
+  - .venv
+  - venv
+  - __pycache__
+  - .pytest_cache
+  - docs
+  - tools
+  - tests
+  - requirements-import.txt
   - fic-template.md
   - radioapple-reader.zip
